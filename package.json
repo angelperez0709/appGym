@@ -1,0 +1,17 @@
+{
+  "name": "bilbo-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "css": "node scripts/build-css.js",
+    "dev": "npm run css && node scripts/server.js . 5173",
+    "build": "node scripts/build.js",
+    "preview": "node scripts/server.js dist 4173",
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/check.js"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.10"
+  }
+}
