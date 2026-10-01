@@ -6,30 +6,34 @@ export async function renderProgressScreen(container, context) {
   const { service, state, rerender } = context;
   const snapshot = await service.getProgressSnapshot(state.exerciseId);
   state.exerciseId = snapshot.exerciseId;
-  state.progressMetric ??= 'VOLUME';
-
-  const isVolume = state.progressMetric === 'VOLUME';
-  const chartPoints = snapshot.sessions.map((session, index) => ({
-    label: `${index + 1}`,
-    value: isVolume ? session.volumeKg : session.estimatedOneRmKg,
+  const seriesFor = (metric) => snapshot.summaries.map((cycle) => ({
+    name: cycle.cycleName,
+    points: snapshot.sessions
+      .filter((session) => session.cycleId === cycle.cycleId)
+      .map((session, index) => ({ label: `Sesión ${index + 1}`, value: session[metric] })),
   }));
 
   container.innerHTML = `
     <section class="screen">
-      ${screenHeader('Progreso', 'Sigue la evolución de la serie Bilbo y compara ciclos completos.')}
+      ${screenHeader('Progreso', 'Sigue la evolución de la serie Bilbo y compara todos los ciclos.')}
       ${exerciseSelect(snapshot.exercises, snapshot.exerciseId)}
 
-      <div class="grid grid-cols-2 gap-2 rounded-xl bg-panel p-1">
-        <button class="rounded-lg px-3 py-2.5 text-sm font-bold ${isVolume ? 'bg-brand text-slate-950' : 'text-muted'}" data-metric="VOLUME">Volumen</button>
-        <button class="rounded-lg px-3 py-2.5 text-sm font-bold ${!isVolume ? 'bg-brand text-slate-950' : 'text-muted'}" data-metric="E1RM">1RM estimado</button>
-      </div>
+      <p class="text-sm text-muted">Cada línea representa un ciclo del ejercicio. Los ciclos en curso muestran solo las sesiones registradas.</p>
 
       <article class="card space-y-3">
         <div>
-          <h2 class="text-lg font-black">${isVolume ? 'Volumen de cada serie Bilbo' : '1RM estimado por entrenamiento'}</h2>
-          <p class="mt-1 text-xs text-muted">${isVolume ? 'Peso × repeticiones.' : 'Indicador de tendencia; a muchas repeticiones puede alejarse del 1RM real.'}</p>
+          <h2 class="text-lg font-black">Volumen por sesión de entrenamiento</h2>
+          <p class="mt-1 text-xs text-muted">Peso × repeticiones de la serie Bilbo, en kg.</p>
         </div>
-        ${lineChart({ points: chartPoints, suffix: ' kg' })}
+        ${lineChart({ series: seriesFor('volumeKg'), suffix: ' kg', title: 'Volumen por sesión de entrenamiento' })}
+      </article>
+
+      <article class="card space-y-3">
+        <div>
+          <h2 class="text-lg font-black">1RM estimado por sesión de entrenamiento</h2>
+          <p class="mt-1 text-xs text-muted">Se usa la fórmula de cada ciclo. A muchas repeticiones puede alejarse del 1RM real.</p>
+        </div>
+        ${lineChart({ series: seriesFor('estimatedOneRmKg'), suffix: ' kg', title: '1RM estimado por sesión de entrenamiento' })}
       </article>
 
       <div class="space-y-3">
@@ -41,13 +45,6 @@ export async function renderProgressScreen(container, context) {
   container.querySelector('[data-role="exercise-select"]')?.addEventListener('change', (event) => {
     state.exerciseId = Number(event.currentTarget.value);
     rerender();
-  });
-
-  container.querySelectorAll('[data-metric]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.progressMetric = button.dataset.metric;
-      rerender();
-    });
   });
 }
 

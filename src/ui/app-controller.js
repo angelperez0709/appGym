@@ -29,7 +29,6 @@ export class AppController {
     this.state = {
       tab: restoreTab(),
       exerciseId: restoreExerciseId(),
-      progressMetric: 'VOLUME',
     };
   }
 
