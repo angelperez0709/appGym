@@ -1,3 +1,5 @@
+import { roundDecimal } from '../../domain/numbers.js';
+
 export function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -7,12 +9,12 @@ export function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-export function formatKg(value, maximumFractionDigits = 1) {
-  return `${new Intl.NumberFormat('es-ES', { maximumFractionDigits }).format(Number(value) || 0)} kg`;
+export function formatKg(value, maximumFractionDigits = 2) {
+  return `${formatNumber(value, maximumFractionDigits)} kg`;
 }
 
-export function formatNumber(value, maximumFractionDigits = 0) {
-  return new Intl.NumberFormat('es-ES', { maximumFractionDigits }).format(Number(value) || 0);
+export function formatNumber(value, maximumFractionDigits = 2) {
+  return new Intl.NumberFormat('es-ES', { maximumFractionDigits: Math.min(maximumFractionDigits, 2) }).format(roundDecimal(value) || 0);
 }
 
 export function formatDate(value) {

@@ -1,3 +1,4 @@
+import { roundNumericFields } from '../domain/numbers.js';
 import { idbRequest, openDatabase, STORE, withTransaction } from './indexed-db.js';
 
 export class TrainingRepository {
@@ -13,7 +14,7 @@ export class TrainingRepository {
   async createExercise(exercise) {
     try {
       return await withTransaction([STORE.EXERCISES], 'readwrite', async ({ exercises }) => (
-        idbRequest(exercises.add(exercise))
+        idbRequest(exercises.add(roundNumericFields(exercise)))
       ));
     } catch (error) {
       if (error?.name === 'ConstraintError') {
@@ -31,7 +32,7 @@ export class TrainingRepository {
       ? await idbRequest(store.getAll())
       : await idbRequest(store.index('exerciseId').getAll(exerciseId));
 
-    return rows.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+    return rows.map(roundNumericFields).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   }
 
   async getCycle(cycleId) {
@@ -43,11 +44,11 @@ export class TrainingRepository {
     const transaction = db.transaction(STORE.CYCLES, 'readonly');
     const store = transaction.objectStore(STORE.CYCLES);
     const rows = await idbRequest(store.index('exerciseStatus').getAll([exerciseId, 'ACTIVE']));
-    return rows.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null;
+    return rows.map(roundNumericFields).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null;
   }
 
   async createCycle(cycle) {
-    return withTransaction([STORE.CYCLES], 'readwrite', async ({ cycles }) => idbRequest(cycles.add(cycle)));
+    return withTransaction([STORE.CYCLES], 'readwrite', async ({ cycles }) => idbRequest(cycles.add(roundNumericFields(cycle))));
   }
 
   async createCycleWithWeights(cycle, weights) {
@@ -55,9 +56,9 @@ export class TrainingRepository {
       [STORE.CYCLES, STORE.CYCLE_WEIGHTS],
       'readwrite',
       async ({ cycles, cycleWeights }) => {
-        const cycleId = await idbRequest(cycles.add(cycle));
+        const cycleId = await idbRequest(cycles.add(roundNumericFields(cycle)));
         for (const weight of weights) {
-          await idbRequest(cycleWeights.add({ ...weight, cycleId }));
+          await idbRequest(cycleWeights.add(roundNumericFields({ ...weight, cycleId })));
         }
         return cycleId;
       },
@@ -69,7 +70,7 @@ export class TrainingRepository {
     const transaction = db.transaction(STORE.CYCLE_WEIGHTS, 'readonly');
     const store = transaction.objectStore(STORE.CYCLE_WEIGHTS);
     const rows = await idbRequest(store.index('cycleId').getAll(cycleId));
-    return rows.sort((a, b) => a.position - b.position);
+    return rows.map(roundNumericFields).sort((a, b) => a.position - b.position);
   }
 
   async listCycleSessions(cycleId) {
@@ -77,7 +78,7 @@ export class TrainingRepository {
     const transaction = db.transaction(STORE.SESSIONS, 'readonly');
     const store = transaction.objectStore(STORE.SESSIONS);
     const rows = await idbRequest(store.index('cycleId').getAll(cycleId));
-    return sortSessions(rows);
+    return sortSessions(rows.map(roundNumericFields));
   }
 
   async listAllSessions() {
@@ -89,8 +90,8 @@ export class TrainingRepository {
       [STORE.SESSIONS, STORE.CYCLES],
       'readwrite',
       async ({ sessions, cycles }) => {
-        const sessionId = await idbRequest(sessions.add(session));
-        await idbRequest(cycles.put(updatedCycle));
+        const sessionId = await idbRequest(sessions.add(roundNumericFields(session)));
+        await idbRequest(cycles.put(roundNumericFields(updatedCycle)));
         return sessionId;
       },
     );
@@ -102,28 +103,28 @@ export class TrainingRepository {
       'readwrite',
       async ({ sessions, cycles }) => {
         await idbRequest(sessions.delete(sessionId));
-        await idbRequest(cycles.put(updatedCycle));
+        await idbRequest(cycles.put(roundNumericFields(updatedCycle)));
       },
     );
   }
 
   async updateSessionAndCycle(session, updatedCycle) {
     return withTransaction([STORE.SESSIONS, STORE.CYCLES], 'readwrite', async ({ sessions, cycles }) => {
-      await idbRequest(sessions.put(session));
-      await idbRequest(cycles.put(updatedCycle));
+      await idbRequest(sessions.put(roundNumericFields(session)));
+      await idbRequest(cycles.put(roundNumericFields(updatedCycle)));
     });
   }
 
   async #get(storeName, key) {
     const db = await openDatabase();
     const transaction = db.transaction(storeName, 'readonly');
-    return idbRequest(transaction.objectStore(storeName).get(key));
+    return roundNumericFields(await idbRequest(transaction.objectStore(storeName).get(key)));
   }
 
   async #getAll(storeName) {
     const db = await openDatabase();
     const transaction = db.transaction(storeName, 'readonly');
-    return idbRequest(transaction.objectStore(storeName).getAll());
+    return (await idbRequest(transaction.objectStore(storeName).getAll())).map(roundNumericFields);
   }
 }
 

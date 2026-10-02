@@ -1,3 +1,4 @@
+import { roundDecimal } from '../../domain/numbers.js';
 import { METHOD_RULES } from '../../application/training-service.js';
 import { escapeHtml, formatDate, formatNumber, parseDecimal } from '../components/format.js';
 import { exerciseSelect, screenHeader, statusPill } from '../components/shared.js';
@@ -106,7 +107,8 @@ export async function renderCyclesScreen(container, context) {
           const result = await service.updateSession({
             cycleId: Number(row.dataset.cycleId), sessionId: Number(row.dataset.sessionRow), weightKg, reps,
           });
-          row.querySelector('[data-session-rm]').textContent = formatNumber(result.session.estimatedOneRmKg, 2);
+          row.querySelector('[name="weight"]').value = roundDecimal(result.session.weightKg);
+            row.querySelector('[data-session-rm]').textContent = formatNumber(result.session.estimatedOneRmKg, 2);
           const card = row.closest('[data-cycle-card]');
           card.querySelector('[data-total-reps]').textContent = result.cycle.totalReps;
           card.querySelector('[data-total-volume]').textContent = formatNumber(result.cycle.totalVolumeKg) + ' kg';
@@ -208,7 +210,7 @@ function renderSessionTable(cycle) {
     <thead><tr><th class="p-2 text-left">Fecha</th><th class="p-2 text-left">Peso (kg)</th><th class="p-2 text-left">Reps</th><th class="p-2 text-left">1RM (kg)</th></tr></thead>
     <tbody>${cycle.sessions.map((session) => `<tr data-session-row="${session.id}" data-cycle-id="${cycle.id}">
       <td class="p-2">${formatDate(session.performedAt)}</td>
-      <td class="p-2"><input class="field min-w-20" name="weight" inputmode="decimal" value="${session.weightKg}" aria-label="Peso de la sesión" required /></td>
+      <td class="p-2"><input class="field min-w-20" name="weight" inputmode="decimal" value="${roundDecimal(session.weightKg)}" aria-label="Peso de la sesión" required /></td>
       <td class="p-2"><input class="field min-w-20" name="reps" type="number" min="1" step="1" value="${session.reps}" aria-label="Repeticiones de la sesión" required /></td>
       <td class="p-2" data-session-rm>${formatNumber(session.estimatedOneRmKg, 2)}</td>
     </tr>`).join('')}</tbody></table></div>`;

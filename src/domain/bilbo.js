@@ -1,3 +1,5 @@
+import { roundDecimal } from './numbers.js';
+
 export const CYCLE_TYPE = Object.freeze({
   PROGRESSIVE: 'PROGRESSIVE',
   FIXED_BLOCKS: 'FIXED_BLOCKS',
@@ -20,23 +22,23 @@ export const FIXED_BLOCK_SESSIONS_PER_WEIGHT = 4;
 
 export function roundToStep(value, step) {
   if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) return value;
-  return Math.round(value / step) * step;
+  return roundDecimal(Math.round(value / step) * step);
 }
 
 export function estimateOneRm(weightKg, reps, formula = ONE_RM_FORMULA.EPLEY) {
   if (weightKg <= 0 || reps <= 0) return 0;
-  if (reps === 1) return weightKg;
+  if (reps === 1) return roundDecimal(weightKg);
 
   if (formula === ONE_RM_FORMULA.MAYHEW) {
     const denominator = 52.2 + 41.9 * Math.exp(-0.055 * reps);
-    return (100 * weightKg) / denominator;
+    return roundDecimal((100 * weightKg) / denominator);
   }
 
-  return weightKg * (1 + reps / 30);
+  return roundDecimal(weightKg * (1 + reps / 30));
 }
 
 export function calculateVolume(weightKg, reps) {
-  return weightKg * reps;
+  return roundDecimal(weightKg * reps);
 }
 
 export function initialWeightFromOneRm(oneRmKg, percentage, roundingKg = 0.5) {
@@ -51,7 +53,7 @@ export function nextPrescription(cycle, sessions, fixedWeights = []) {
   if (cycle.type === CYCLE_TYPE.PROGRESSIVE) {
     if (ordered.length === 0) {
       return {
-        weightKg: cycle.startWeightKg ?? 0,
+        weightKg: roundDecimal(cycle.startWeightKg ?? 0),
         label: 'Primera sesión del ciclo',
         cycleCanFinish: false,
       };
@@ -61,7 +63,7 @@ export function nextPrescription(cycle, sessions, fixedWeights = []) {
     const reachedEnd = last.reps <= PROGRESSIVE_END_REPS;
 
     return {
-      weightKg: reachedEnd ? last.weightKg : last.weightKg + (cycle.incrementKg ?? 0),
+      weightKg: roundDecimal(reachedEnd ? last.weightKg : last.weightKg + (cycle.incrementKg ?? 0)),
       label: reachedEnd
         ? `Ciclo completado con ${last.reps} reps.`
         : `Sube ${formatDecimal(cycle.incrementKg ?? 0)} kg respecto a la última sesión.`,
@@ -76,7 +78,7 @@ export function nextPrescription(cycle, sessions, fixedWeights = []) {
     const completed = ordered.filter((session) => sameWeight(session.prescribedWeightKg ?? session.weightKg, block.weightKg)).length;
     if (completed < block.targetSessions) {
       return {
-        weightKg: block.weightKg,
+        weightKg: roundDecimal(block.weightKg),
         label: `Peso ${block.position + 1} de ${weights.length}`,
         blockProgress: `${completed + 1}/${block.targetSessions}`,
         cycleCanFinish: false,
@@ -86,7 +88,7 @@ export function nextPrescription(cycle, sessions, fixedWeights = []) {
 
   const last = weights.at(-1);
   return {
-    weightKg: last.weightKg,
+    weightKg: roundDecimal(last.weightKg),
     label: 'Ciclo de bloques completado.',
     blockProgress: `${last.targetSessions}/${last.targetSessions}`,
     cycleCanFinish: true,

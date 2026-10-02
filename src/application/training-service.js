@@ -1,3 +1,4 @@
+import { roundDecimal } from '../domain/numbers.js';
 import {
   CYCLE_STATUS,
   CYCLE_TYPE,
@@ -36,7 +37,7 @@ export class TrainingService {
     return this.repository.createExercise({
       name: cleanName,
       normalizedName: cleanName.toLocaleLowerCase('es'),
-      defaultIncrementKg,
+      defaultIncrementKg: roundDecimal(defaultIncrementKg),
       createdAt: nowIso(),
     });
   }
@@ -46,9 +47,9 @@ export class TrainingService {
     await this.#assertExerciseExists(exerciseId);
     await this.#assertNoActiveCycle(exerciseId);
 
-    const oneRmKg = Number(input.oneRmKg);
-    const startPercentage = Number(input.startPercentage);
-    const incrementKg = Number(input.incrementKg);
+    const oneRmKg = roundDecimal(input.oneRmKg);
+    const startPercentage = roundDecimal(input.startPercentage);
+    const incrementKg = roundDecimal(input.incrementKg);
     validateProgressiveCycleInput({ oneRmKg, startPercentage, incrementKg });
 
     const cycle = {
@@ -77,7 +78,7 @@ export class TrainingService {
     await this.#assertExerciseExists(exerciseId);
     await this.#assertNoActiveCycle(exerciseId);
 
-    const weightsKg = input.weightsKg.map(Number);
+    const weightsKg = input.weightsKg.map(roundDecimal);
     validateFixedCycleWeights(weightsKg);
 
     const cycle = {
@@ -167,7 +168,7 @@ export class TrainingService {
     const updatedCycle = {
       ...cycle,
       totalReps: cycle.totalReps + numericReps,
-      totalVolumeKg: cycle.totalVolumeKg + volumeKg,
+      totalVolumeKg: roundDecimal(cycle.totalVolumeKg + volumeKg),
       status: cycleCompleted ? CYCLE_STATUS.COMPLETED : cycle.status,
       endedAt: cycleCompleted ? performedAt : cycle.endedAt,
     };
@@ -195,7 +196,7 @@ export class TrainingService {
     const sessions = await this.repository.listCycleSessions(cycle.id);
     const original = sessions.find((session) => session.id === Number(sessionId));
     if (!original) throw new Error('Sesión no encontrada.');
-    weightKg = Number(weightKg);
+    weightKg = roundDecimal(weightKg);
     reps = Number(reps);
     if (!Number.isFinite(weightKg) || weightKg <= 0) throw new Error('El peso debe ser mayor que cero.');
     if (!Number.isInteger(reps) || reps <= 0) throw new Error('Las repeticiones deben ser un número entero mayor que cero.');
@@ -209,7 +210,7 @@ export class TrainingService {
     const updatedCycle = {
       ...cycle,
       totalReps: corrected.reduce((sum, session) => sum + session.reps, 0),
-      totalVolumeKg: corrected.reduce((sum, session) => sum + session.volumeKg, 0),
+      totalVolumeKg: roundDecimal(corrected.reduce((sum, session) => sum + session.volumeKg, 0)),
       status: cycle.status === CYCLE_STATUS.ARCHIVED ? cycle.status : completed || !canReopen ? CYCLE_STATUS.COMPLETED : CYCLE_STATUS.ACTIVE,
       endedAt: completed ? corrected.at(-1).performedAt : canReopen ? null : cycle.endedAt,
     };

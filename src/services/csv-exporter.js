@@ -1,3 +1,4 @@
+import { roundDecimal } from '../domain/numbers.js';
 const DEFAULT_FILENAME = 'bilbo-tracker.csv';
 
 export function downloadCsv(rows, filename = DEFAULT_FILENAME) {
@@ -23,7 +24,7 @@ export function downloadCsv(rows, filename = DEFAULT_FILENAME) {
 }
 
 function escapeCsv(value) {
-  const text = value == null ? '' : String(value);
+  const text = value == null ? '' : String(typeof value === 'number' ? roundDecimal(value) : value);
   if (!/[",\r\n]/.test(text)) return text;
   return `"${text.replaceAll('"', '""')}"`;
 }
