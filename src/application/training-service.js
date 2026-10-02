@@ -62,7 +62,7 @@ export class TrainingService {
       incrementKg,
       targetEndReps: PROGRESSIVE_END_REPS,
       fixedSessionsPerWeight: null,
-      oneRmFormula: normalizeFormula(input.formula),
+      oneRmFormula: ONE_RM_FORMULA.EPLEY,
       totalReps: 0,
       totalVolumeKg: 0,
       startedAt: nowIso(),
@@ -91,7 +91,7 @@ export class TrainingService {
       incrementKg: null,
       targetEndReps: PROGRESSIVE_END_REPS,
       fixedSessionsPerWeight: FIXED_BLOCK_SESSIONS_PER_WEIGHT,
-      oneRmFormula: normalizeFormula(input.formula),
+      oneRmFormula: ONE_RM_FORMULA.EPLEY,
       totalReps: 0,
       totalVolumeKg: 0,
       startedAt: nowIso(),
@@ -180,7 +180,41 @@ export class TrainingService {
     const exercises = await this.repository.listExercises();
     const exerciseId = chooseExerciseId(exercises, preferredExerciseId);
     const cycles = exerciseId ? await this.repository.listCycles(exerciseId) : [];
-    return { exercises, exerciseId, cycles };
+    const groups = await Promise.all(cycles.map((cycle) => this.repository.listCycleSessions(cycle.id)));
+    const detailedCycles = cycles.map((cycle, index) => ({
+      ...cycle,
+      sessions: [...groups[index]].sort(compareSessions),
+      bestEstimatedOneRmKg: maxOf(groups[index], (session) => estimateOneRm(session.weightKg, session.reps)),
+    }));
+    return { exercises, exerciseId, cycles: detailedCycles, previousOneRmKg: detailedCycles[0]?.startOneRmKg ?? null };
+  }
+
+  async updateSession({ cycleId, sessionId, weightKg, reps }) {
+    const cycle = await this.repository.getCycle(Number(cycleId));
+    if (!cycle) throw new Error('Ciclo no encontrado.');
+    const sessions = await this.repository.listCycleSessions(cycle.id);
+    const original = sessions.find((session) => session.id === Number(sessionId));
+    if (!original) throw new Error('Sesión no encontrada.');
+    weightKg = Number(weightKg);
+    reps = Number(reps);
+    if (!Number.isFinite(weightKg) || weightKg <= 0) throw new Error('El peso debe ser mayor que cero.');
+    if (!Number.isInteger(reps) || reps <= 0) throw new Error('Las repeticiones deben ser un número entero mayor que cero.');
+    const updated = { ...original, prescribedWeightKg: original.prescribedWeightKg ?? original.weightKg, weightKg, reps, volumeKg: calculateVolume(weightKg, reps), estimatedOneRmKg: estimateOneRm(weightKg, reps) };
+    const corrected = sessions.map((session) => session.id === updated.id ? updated : session).sort(compareSessions);
+    const weights = cycle.type === CYCLE_TYPE.FIXED_BLOCKS ? await this.repository.listCycleWeights(cycle.id) : [];
+    const completed = isCycleCompletedAfterSession(cycle, corrected, weights);
+    const active = await this.repository.getActiveCycle(cycle.exerciseId);
+    // Older cycles stay closed when another cycle has already started.
+    const canReopen = !active || active.id === cycle.id;
+    const updatedCycle = {
+      ...cycle,
+      totalReps: corrected.reduce((sum, session) => sum + session.reps, 0),
+      totalVolumeKg: corrected.reduce((sum, session) => sum + session.volumeKg, 0),
+      status: cycle.status === CYCLE_STATUS.ARCHIVED ? cycle.status : completed || !canReopen ? CYCLE_STATUS.COMPLETED : CYCLE_STATUS.ACTIVE,
+      endedAt: completed ? corrected.at(-1).performedAt : canReopen ? null : cycle.endedAt,
+    };
+    await this.repository.updateSessionAndCycle(updated, updatedCycle);
+    return { session: updated, cycle: updatedCycle, bestEstimatedOneRmKg: maxOf(corrected, (session) => estimateOneRm(session.weightKg, session.reps)) };
   }
 
   async getProgressSnapshot(preferredExerciseId = null) {
@@ -294,10 +328,6 @@ function chooseExerciseId(exercises, preferredExerciseId) {
   const preferred = Number(preferredExerciseId);
   if (exercises.some((exercise) => exercise.id === preferred)) return preferred;
   return exercises[0]?.id ?? null;
-}
-
-function normalizeFormula(formula) {
-  return formula === ONE_RM_FORMULA.MAYHEW ? ONE_RM_FORMULA.MAYHEW : ONE_RM_FORMULA.EPLEY;
 }
 
 function requireName(value, message) {

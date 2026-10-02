@@ -42,4 +42,14 @@ test('gráficas vacías, una única sesión y nombres escapados', () => {
   assert.match(html, /&lt;script&gt;/);
   assert.doesNotMatch(html, /NaN|Infinity|<script>/);
   assert.equal((html.match(/<circle /g) ?? []).length, 1);
+  assert.equal((html.match(/data-axis="session"/g) ?? []).length, 1);
+});
+
+test('numera todas las sesiones y divide el rango vertical en diez intervalos iguales', () => {
+  const html = lineChart({ series: [{ name: 'Ciclo', points: Array.from({ length: 10 }, (_, index) => ({ label: `Sesión ${index + 1}`, value: 100 + index * 10 })) }] });
+  const labels = [...html.matchAll(/data-axis="session">(\d+)<\/text>/g)].map((match) => Number(match[1]));
+  assert.deepEqual(labels, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  const ticks = [...html.matchAll(/text-anchor="end">([^<]+)<\/text>/g)].map((match) => Number(match[1].replace(',', '.')));
+  assert.deepEqual(ticks, [190, 181, 172, 163, 154, 145, 136, 127, 118, 109, 100]);
+  assert.doesNotMatch(html, />Sesión \d+<\/text>/);
 });

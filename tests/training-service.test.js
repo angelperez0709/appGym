@@ -40,6 +40,10 @@ class MemoryRepository {
   async listCycleWeights(cycleId) { return this.weights.filter((weight) => weight.cycleId === cycleId); }
   async listCycleSessions(cycleId) { return this.sessions.filter((session) => session.cycleId === cycleId); }
   async listAllSessions() { return [...this.sessions]; }
+  async updateSessionAndCycle(session, cycle) {
+    this.sessions[this.sessions.findIndex((row) => row.id === session.id)] = session;
+    this.cycles[this.cycles.findIndex((row) => row.id === cycle.id)] = cycle;
+  }
   async saveSessionAndCycle(session, updatedCycle) {
     const id = this.ids.session++;
     this.sessions.push({ ...session, id });
@@ -48,6 +52,39 @@ class MemoryRepository {
     return id;
   }
 }
+
+test('corrige sesiones, recalcula métricas y precarga la referencia introducida en el ciclo anterior', async () => {
+  const repository = new MemoryRepository();
+  const service = new TrainingService(repository);
+  const exerciseId = await service.createExercise('Banca');
+  const cycleId = await service.createProgressiveCycle({ exerciseId, name: 'Uno', oneRmKg: 100, startPercentage: 50, incrementKg: 2.5, formula: 'MAYHEW' });
+  assert.equal((await repository.getCycle(cycleId)).oneRmFormula, 'EPLEY');
+  const first = await service.logPrescribedSession({ cycleId, reps: 15 });
+  await service.updateSession({ cycleId, sessionId: first.sessionId, weightKg: 60, reps: 20 });
+  const cycle = await repository.getCycle(cycleId);
+  assert.equal(cycle.status, 'ACTIVE');
+  assert.equal(cycle.endedAt, null);
+  assert.equal(cycle.totalReps, 20);
+  assert.equal(cycle.totalVolumeKg, 1200);
+  assert.equal((await service.getTrainingSnapshot(exerciseId)).prescription.weightKg, 62.5);
+  await service.updateSession({ cycleId, sessionId: first.sessionId, weightKg: 90, reps: 20 });
+  const snapshot = await service.getCyclesSnapshot(exerciseId);
+  assert.equal(snapshot.previousOneRmKg, 100);
+  assert.ok(snapshot.cycles[0].bestEstimatedOneRmKg > 100);
+  await assert.rejects(service.updateSession({ cycleId, sessionId: first.sessionId, weightKg: Infinity, reps: 20 }));
+  await assert.rejects(service.updateSession({ cycleId, sessionId: first.sessionId, weightKg: 60, reps: 1.5 }));
+});
+
+test('corregir pesos en bloques conserva el avance de las sesiones', async () => {
+  const repository = new MemoryRepository();
+  const service = new TrainingService(repository);
+  const exerciseId = await service.createExercise('Militar');
+  const cycleId = await service.createFixedCycle({ exerciseId, name: 'Bloques', weightsKg: [40, 45, 50] });
+  const first = await service.logPrescribedSession({ cycleId, reps: 20 });
+  for (let index = 0; index < 3; index++) await service.logPrescribedSession({ cycleId, reps: 20 });
+  await service.updateSession({ cycleId, sessionId: first.sessionId, weightKg: 41, reps: 21 });
+  assert.equal((await service.getTrainingSnapshot(exerciseId)).prescription.weightKg, 45);
+});
 
 test('el servicio completa un ciclo progresivo y acumula reps/volumen', async () => {
   const repository = new MemoryRepository();

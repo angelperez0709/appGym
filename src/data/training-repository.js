@@ -107,6 +107,13 @@ export class TrainingRepository {
     );
   }
 
+  async updateSessionAndCycle(session, updatedCycle) {
+    return withTransaction([STORE.SESSIONS, STORE.CYCLES], 'readwrite', async ({ sessions, cycles }) => {
+      await idbRequest(sessions.put(session));
+      await idbRequest(cycles.put(updatedCycle));
+    });
+  }
+
   async #get(storeName, key) {
     const db = await openDatabase();
     const transaction = db.transaction(storeName, 'readonly');

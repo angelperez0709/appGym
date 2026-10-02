@@ -6,19 +6,18 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
     return `<div class="flex min-h-52 items-center justify-center rounded-xl border border-dashed border-line bg-panel2/50 px-4 text-center text-sm text-muted">${escapeHtml(emptyText)}</div>`;
   }
 
-  const width = 640;
-  const height = 260;
-  const padding = { top: 24, right: 18, bottom: 36, left: 48 };
+  const sessionCount = Math.max(...series.map((item) => item.points.length));
+  const width = Math.max(640, 80 + (sessionCount - 1) * 32);
+  const height = 340;
+  const padding = { top: 24, right: 18, bottom: 36, left: 64 };
   const values = points.map((point) => Number(point.value) || 0);
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
-  const spread = Math.max(rawMax - rawMin, rawMax * 0.08, 1);
-  const min = Math.max(0, rawMin - spread * 0.12);
-  const max = rawMax + spread * 0.12;
+  const min = rawMin === rawMax ? Math.max(0, rawMin - Math.max(rawMin * 0.08, 1)) : rawMin;
+  const max = rawMin === rawMax ? rawMax + Math.max(rawMax * 0.08, 1) : rawMax;
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
 
-  const sessionCount = Math.max(...series.map((item) => item.points.length));
   const colors = ['#4ade80', '#60a5fa', '#fbbf24', '#f472b6', '#a78bfa', '#22d3ee', '#fb923c'];
   const lines = series.map((item, cycleIndex) => {
     const color = colors[cycleIndex % colors.length];
@@ -26,7 +25,7 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
     const xy = item.points.map((point, index) => ({
       ...point,
       x: sessionCount === 1 ? padding.left + plotWidth / 2 : padding.left + index / (sessionCount - 1) * plotWidth,
-      y: padding.top + (1 - (point.value - min) / Math.max(max - min, 1)) * plotHeight,
+      y: padding.top + (1 - (point.value - min) / (max - min)) * plotHeight,
     }));
     const polyline = xy.map(({ x, y }) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
     const dots = xy.map(({ x, y, value, label }) => `
@@ -43,7 +42,7 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
     <span>${escapeHtml(item.name)}${item.points.length ? '' : ' (sin sesiones)'}</span>
   </li>`).join('');
 
-  const grid = [0, 0.5, 1].map((ratio) => {
+  const grid = Array.from({ length: 11 }, (_, index) => index / 10).map((ratio) => {
     const y = padding.top + ratio * plotHeight;
     const value = max - ratio * (max - min);
     return `
@@ -51,14 +50,20 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
       <text x="${padding.left - 8}" y="${y + 4}" fill="#9ca3af" font-size="12" text-anchor="end">${escapeHtml(formatNumber(value, 1))}</text>`;
   }).join('');
 
+  const sessionLabels = Array.from({ length: sessionCount }, (_, index) => {
+    const x = sessionCount === 1 ? padding.left + plotWidth / 2 : padding.left + index / (sessionCount - 1) * plotWidth;
+    return `<text x="${x}" y="${height - 10}" fill="#9ca3af" font-size="12" text-anchor="middle" data-axis="session">${index + 1}</text>`;
+  }).join('');
+
   return `
-    <div class="overflow-hidden rounded-xl bg-panel2/40 p-2">
+    <div class="overflow-x-auto rounded-xl bg-panel2/40 p-2">
+      <div style="min-width: ${Math.max(320, sessionCount * 24 + 64)}px">
       <svg viewBox="0 0 ${width} ${height}" class="h-auto w-full" role="img" aria-label="${escapeHtml(title)}">
         ${grid}
         ${lines}
-        <text x="${padding.left}" y="${height - 10}" fill="#9ca3af" font-size="12">Sesión 1</text>
-        <text x="${width - padding.right}" y="${height - 10}" fill="#9ca3af" font-size="12" text-anchor="end">Sesión ${sessionCount}</text>
+        ${sessionLabels}
       </svg>
+      </div>
       <ul class="mt-2 flex flex-wrap gap-3" aria-label="Ciclos">${legend}</ul>
     </div>`;
 }

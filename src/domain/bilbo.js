@@ -73,7 +73,7 @@ export function nextPrescription(cycle, sessions, fixedWeights = []) {
   if (weights.length === 0) return null;
 
   for (const block of weights) {
-    const completed = ordered.filter((session) => sameWeight(session.weightKg, block.weightKg)).length;
+    const completed = ordered.filter((session) => sameWeight(session.prescribedWeightKg ?? session.weightKg, block.weightKg)).length;
     if (completed < block.targetSessions) {
       return {
         weightKg: block.weightKg,
@@ -101,7 +101,7 @@ export function isCycleCompletedAfterSession(cycle, sessionsIncludingNew, fixedW
   if (fixedWeights.length !== FIXED_BLOCK_WEIGHT_COUNT) return false;
 
   return fixedWeights.every((block) => {
-    const count = sessionsIncludingNew.filter((session) => sameWeight(session.weightKg, block.weightKg)).length;
+    const count = sessionsIncludingNew.filter((session) => sameWeight(session.prescribedWeightKg ?? session.weightKg, block.weightKg)).length;
     return count >= block.targetSessions;
   });
 }

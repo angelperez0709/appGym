@@ -9,7 +9,7 @@ export function screenHeader(title, subtitle = '') {
 }
 
 export function exerciseSelect(exercises, selectedId) {
-  if (exercises.length <= 1) return '';
+  if (exercises.length === 0) return '';
   return `
     <label class="block">
       <span class="label">Ejercicio</span>
