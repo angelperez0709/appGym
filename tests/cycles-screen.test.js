@@ -19,9 +19,50 @@ test('muestra un ejercicio, referencia precargada y tabla editable sin placehold
   assert.match(container.innerHTML, /<table/);
   assert.match(container.innerHTML, /data-session-row="3"/);
   assert.match(container.innerHTML, /<article[^>]*data-cycle-card="2"/);
+  assert.match(container.innerHTML, /data-delete-cycle="2">Eliminar ciclo</);
   assert.match(container.innerHTML, /data-edit-label>Ocultar</);
   assert.doesNotMatch(container.innerHTML, />Guardar<|>Acción</);
   assert.doesNotMatch(container.innerHTML, /placeholder=|name="formula"|Mayhew/);
+});
+
+test('eliminar exige confirmación y espera a que el borrado termine antes de actualizar la pantalla', async () => {
+  const state = { exerciseId: 1, expandedCycleId: 2 };
+  let click;
+  let allowed = false;
+  let removed = false;
+  let reads = 0;
+  const button = {
+    disabled: false, dataset: { deleteCycle: '2' },
+    addEventListener: (_, handler) => { click = handler; },
+    closest: () => ({ isConnected: true, querySelectorAll: () => [button] }),
+  };
+  const container = {
+    innerHTML: '', querySelector: () => null,
+    querySelectorAll: (selector) => selector === '[data-delete-cycle]' && !removed ? [button] : [],
+  };
+  await renderCyclesScreen(container, {
+    state, rerender: () => assert.fail('No debe reiniciar la pantalla'), toast: () => {},
+    confirm: (message) => {
+      assert.match(message, /Borrar.*todas sus sesiones.*no se puede deshacer/);
+      return allowed;
+    },
+    service: {
+      getCyclesSnapshot: async () => {
+        reads++;
+        return { exerciseId: 1, exercises: [], cycles: removed ? [] : [{ id: 2, name: 'Borrar', type: 'FIXED_BLOCKS', sessions: [] }] };
+      },
+      deleteCycle: async (id) => { assert.equal(id, 2); assert.equal(button.disabled, true); removed = true; },
+    },
+  });
+  await click();
+  assert.equal(removed, false);
+  assert.equal(button.disabled, false);
+  allowed = true;
+  await click();
+  assert.equal(removed, true);
+  assert.equal(state.expandedCycleId, null);
+  assert.equal(reads, 2);
+  assert.match(container.innerHTML, /Aún no hay ciclos/);
 });
 
 test('Editar abre y Ocultar cierra el panel sin volver a renderizar la pantalla', async () => {

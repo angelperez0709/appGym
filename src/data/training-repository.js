@@ -39,6 +39,20 @@ export class TrainingRepository {
     return this.#get(STORE.CYCLES, cycleId);
   }
 
+  async deleteCycle(cycleId) {
+    return withTransaction([STORE.CYCLES, STORE.SESSIONS, STORE.CYCLE_WEIGHTS], 'readwrite', async ({ cycles, sessions, cycleWeights }) => {
+      const [sessionIds, weightIds] = await Promise.all([
+        idbRequest(sessions.index('cycleId').getAllKeys(cycleId)),
+        idbRequest(cycleWeights.index('cycleId').getAllKeys(cycleId)),
+      ]);
+      await Promise.all([
+        ...sessionIds.map((id) => idbRequest(sessions.delete(id))),
+        ...weightIds.map((id) => idbRequest(cycleWeights.delete(id))),
+        idbRequest(cycles.delete(cycleId)),
+      ]);
+    });
+  }
+
   async getActiveCycle(exerciseId) {
     const db = await openDatabase();
     const transaction = db.transaction(STORE.CYCLES, 'readonly');

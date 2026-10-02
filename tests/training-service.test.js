@@ -24,6 +24,11 @@ class MemoryRepository {
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   }
   async getCycle(id) { return this.cycles.find((cycle) => cycle.id === id) ?? null; }
+  async deleteCycle(id) {
+    this.cycles = this.cycles.filter((cycle) => cycle.id !== id);
+    this.sessions = this.sessions.filter((session) => session.cycleId !== id);
+    this.weights = this.weights.filter((weight) => weight.cycleId !== id);
+  }
   async getActiveCycle(exerciseId) {
     return this.cycles.find((cycle) => cycle.exerciseId === exerciseId && cycle.status === 'ACTIVE') ?? null;
   }
@@ -52,6 +57,29 @@ class MemoryRepository {
     return id;
   }
 }
+
+test('eliminar un ciclo borra sus sesiones y pesos, conserva los demás y libera el ejercicio', async () => {
+  const repository = new MemoryRepository();
+  const service = new TrainingService(repository);
+  const exerciseId = await service.createExercise('Banca');
+  const otherExerciseId = await service.createExercise('Militar');
+  const cycleId = await service.createFixedCycle({ exerciseId, name: 'Eliminar', weightsKg: [30, 35, 40] });
+  const otherCycleId = await service.createFixedCycle({ exerciseId: otherExerciseId, name: 'Conservar', weightsKg: [20, 25, 30] });
+  await service.logPrescribedSession({ cycleId, reps: 20 });
+  await service.logPrescribedSession({ cycleId: otherCycleId, reps: 25 });
+  await service.deleteCycle(cycleId);
+  assert.equal(await repository.getCycle(cycleId), null);
+  assert.equal((await repository.listCycleSessions(cycleId)).length, 0);
+  assert.equal((await repository.listCycleWeights(cycleId)).length, 0);
+  assert.equal((await service.getProgressSnapshot(exerciseId)).sessions.length, 0);
+  assert.equal((await service.getRecordsSnapshot(exerciseId)).records.length, 0);
+  assert.equal((await repository.listCycleSessions(otherCycleId)).length, 1);
+  assert.equal((await repository.listCycleWeights(otherCycleId)).length, 3);
+  assert.equal((await service.exportRows()).length, 1);
+  assert.equal((await service.listExercises()).length, 2);
+  await service.createProgressiveCycle({ exerciseId, name: 'Nuevo', oneRmKg: 100, startPercentage: 50, incrementKg: 2.5 });
+  await assert.rejects(service.deleteCycle(cycleId), /Ciclo no encontrado/);
+});
 
 test('corrige sesiones, recalcula métricas y precarga la referencia introducida en el ciclo anterior', async () => {
   const repository = new MemoryRepository();

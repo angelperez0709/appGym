@@ -108,7 +108,7 @@ export async function renderCyclesScreen(container, context) {
             cycleId: Number(row.dataset.cycleId), sessionId: Number(row.dataset.sessionRow), weightKg, reps,
           });
           row.querySelector('[name="weight"]').value = roundDecimal(result.session.weightKg);
-            row.querySelector('[data-session-rm]').textContent = formatNumber(result.session.estimatedOneRmKg, 2);
+          row.querySelector('[data-session-rm]').textContent = formatNumber(result.session.estimatedOneRmKg, 2);
           const card = row.closest('[data-cycle-card]');
           card.querySelector('[data-total-reps]').textContent = result.cycle.totalReps;
           card.querySelector('[data-total-volume]').textContent = formatNumber(result.cycle.totalVolumeKg) + ' kg';
@@ -119,6 +119,28 @@ export async function renderCyclesScreen(container, context) {
           toast(error.message ?? String(error), 'error');
         }
       });
+    });
+  });
+
+  container.querySelectorAll('[data-delete-cycle]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const cycleId = Number(button.dataset.deleteCycle);
+      const cycle = snapshot.cycles.find((item) => item.id === cycleId);
+      const confirmDelete = context.confirm ?? ((message) => window.confirm(message));
+      if (!confirmDelete(`¿Eliminar “${cycle.name}” y todas sus sesiones? Esta acción no se puede deshacer.`)) return;
+      const card = button.closest('[data-cycle-card]');
+      const controls = card.querySelectorAll('button, input');
+      controls.forEach((control) => { control.disabled = true; });
+      try {
+        await saveQueue;
+        await service.deleteCycle(cycleId);
+        if (state.expandedCycleId === cycleId) state.expandedCycleId = null;
+        toast('Ciclo eliminado.', 'success');
+        if (card.isConnected) await renderCyclesScreen(container, context);
+      } catch (error) {
+        toast(error.message ?? String(error), 'error');
+        controls.forEach((control) => { control.disabled = false; });
+      }
     });
   });
 
@@ -201,6 +223,7 @@ function renderCycleCard(cycle, expandedCycleId) {
       </div>
       <button class="btn-secondary w-full" type="button" data-open-cycle="${cycle.id}" aria-expanded="${expandedCycleId === cycle.id}"><span data-edit-label>${expandedCycleId === cycle.id ? 'Ocultar' : 'Editar'}</span></button>
       <div data-session-panel ${expandedCycleId === cycle.id ? '' : 'hidden'}>${renderSessionTable(cycle)}</div>
+      <button class="btn-secondary w-full !border-rose-400/30 !text-rose-300" type="button" data-delete-cycle="${cycle.id}">Eliminar ciclo</button>
     </article>`;
 }
 

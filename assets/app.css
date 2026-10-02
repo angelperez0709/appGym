@@ -11,6 +11,7 @@
   --color-emerald-950: oklch(26.2% 0.051 172.552);
   --color-rose-100: oklch(94.1% 0.03 12.58);
   --color-rose-200: oklch(89.2% 0.058 10.001);
+  --color-rose-300: oklch(81% 0.117 11.638);
   --color-rose-400: oklch(71.2% 0.194 13.428);
   --color-rose-950: oklch(27.1% 0.105 12.094);
   --color-slate-100: oklch(96.8% 0.007 247.896);
@@ -437,6 +438,12 @@
     border-color: color-mix(in oklab, var(--color-brand) 40%, transparent) !important;
   }
 }
+.\!border-rose-400\/30 {
+  border-color: color-mix(in srgb, oklch(71.2% 0.194 13.428) 30%, transparent) !important;
+  @supports (color: color-mix(in lab, red, red)) {
+    border-color: color-mix(in oklab, var(--color-rose-400) 30%, transparent) !important;
+  }
+}
 .border-brand\/30 {
   border-color: color-mix(in srgb, #4ade80 30%, transparent);
   @supports (color: color-mix(in lab, red, red)) {
@@ -632,6 +639,9 @@
 }
 .\!text-brand {
   color: var(--color-brand) !important;
+}
+.\!text-rose-300 {
+  color: var(--color-rose-300) !important;
 }
 .text-amber-300 {
   color: var(--color-amber-300);

@@ -190,6 +190,12 @@ export class TrainingService {
     return { exercises, exerciseId, cycles: detailedCycles, previousOneRmKg: detailedCycles[0]?.startOneRmKg ?? null };
   }
 
+  async deleteCycle(cycleId) {
+    const cycle = await this.repository.getCycle(Number(cycleId));
+    if (!cycle) throw new Error('Ciclo no encontrado.');
+    await this.repository.deleteCycle(cycle.id);
+  }
+
   async updateSession({ cycleId, sessionId, weightKg, reps }) {
     const cycle = await this.repository.getCycle(Number(cycleId));
     if (!cycle) throw new Error('Ciclo no encontrado.');
