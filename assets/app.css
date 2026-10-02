@@ -215,6 +215,9 @@
 .pointer-events-none {
   pointer-events: none;
 }
+.visible {
+  visibility: visible;
+}
 .fixed {
   position: fixed;
 }
@@ -229,6 +232,9 @@
 }
 .bottom-0 {
   bottom: 0px;
+}
+.bottom-24 {
+  bottom: calc(var(--spacing) * 24);
 }
 .z-40 {
   z-index: 40;

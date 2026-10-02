@@ -12,7 +12,7 @@ Bilbo Tracker es una aplicación **mobile-first y offline** para registrar exclu
 - Cierre automático del 3×4 al completar sus 12 entrenamientos.
 - Repeticiones totales y volumen total por ciclo.
 - Volumen de cada serie: `peso × repeticiones`.
-- 1RM estimado con Epley o Mayhew.
+- 1RM estimado con Epley.
 - Gráfica de volumen y de 1RM estimado.
 - Comparación de ciclos.
 - Récord de repeticiones para cada peso.
@@ -146,6 +146,10 @@ Después Bilbo Tracker tendrá su propio icono y se abrirá en modo `standalone`
 - `public/icons/`: iconos 192×192 y 512×512.
 
 Al generar `dist/`, todos los módulos JS, el CSS y los recursos quedan incluidos en la caché de aplicación para poder iniciar Bilbo Tracker offline.
+
+Cada compilación calcula una versión a partir del contenido de los archivos. Cuando cambian, la PWA descarga la versión nueva en una caché separada y muestra **Actualización disponible → Actualizar**. Comprueba las actualizaciones al abrirla y al volver a ella con conexión. Al pulsar el botón se activa la versión nueva y se recarga la app; los entrenamientos de IndexedDB se conservan.
+
+Para pasar desde la versión antigua sin este aviso, abre la app con conexión, deja que descargue la actualización y cierra completamente la PWA y las pestañas de esta app en el navegador. Al volver a abrirla cargará la nueva versión. No borres los datos del sitio.
 
 ## Tailwind CSS
 

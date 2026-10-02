@@ -85,10 +85,25 @@ export class AppController {
     }, 3200);
   }
 
+  showUpdate(apply) {
+    const host = this.root.querySelector('#update-host');
+    if (host.childElementCount) return;
+    host.innerHTML = `<div class="pointer-events-auto flex items-center justify-between gap-3 rounded-xl border border-brand/40 bg-emerald-950 px-4 py-3 text-sm font-bold text-emerald-100 shadow-lift" role="status">
+      <span>Actualización disponible</span>
+      <button class="btn-primary shrink-0" type="button">Actualizar</button>
+    </div>`;
+    host.querySelector('button').addEventListener('click', (event) => {
+      event.currentTarget.disabled = true;
+      event.currentTarget.textContent = 'Actualizando…';
+      apply();
+    });
+  }
+
   #renderShell() {
     this.root.innerHTML = `
       <div class="app-shell bg-ink">
         <main id="screen" aria-live="polite"></main>
+        <div id="update-host" class="pointer-events-none fixed inset-x-4 bottom-24 z-50 mx-auto max-w-md"></div>
         <div id="toast-host" class="pointer-events-none fixed inset-x-4 top-4 z-50 mx-auto flex max-w-md flex-col gap-2" aria-live="assertive"></div>
         <nav class="bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel/95 backdrop-blur" aria-label="Navegación principal">
           <div class="mx-auto grid max-w-2xl grid-cols-5 px-1 pt-1">

@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import './build-css.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -22,7 +23,15 @@ const files = (await listFiles(dist))
 
 const swPath = join(dist, 'sw.js');
 const sw = await readFile(swPath, 'utf8');
-await writeFile(swPath, sw.replace("['__BUILD_ASSETS__']", JSON.stringify(files, null, 2)));
+const hash = createHash('sha256').update(sw);
+for (const file of files) {
+  hash.update(file);
+  hash.update(await readFile(join(dist, file)));
+}
+const version = hash.digest('hex').slice(0, 16);
+await writeFile(swPath, sw
+  .replace('__BUILD_VERSION__', version)
+  .replace("['__BUILD_ASSETS__']", JSON.stringify(files, null, 2)));
 console.log(`Build PWA creado en ${dist}`);
 
 async function listFiles(directory) {
