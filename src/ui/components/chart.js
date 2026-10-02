@@ -7,7 +7,7 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
   }
 
   const sessionCount = Math.max(...series.map((item) => item.points.length));
-  const width = Math.max(640, 80 + (sessionCount - 1) * 32);
+  const width = 640;
   const height = 340;
   const padding = { top: 24, right: 18, bottom: 36, left: 64 };
   const values = points.map((point) => Number(point.value) || 0);
@@ -56,14 +56,12 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
   }).join('');
 
   return `
-    <div class="overflow-x-auto rounded-xl bg-panel2/40 p-2">
-      <div style="min-width: ${Math.max(320, sessionCount * 24 + 64)}px">
+    <div class="min-w-0 overflow-hidden rounded-xl bg-panel2/40 p-2">
       <svg viewBox="0 0 ${width} ${height}" class="h-auto w-full" role="img" aria-label="${escapeHtml(title)}">
         ${grid}
         ${lines}
         ${sessionLabels}
       </svg>
-      </div>
       <ul class="mt-2 flex flex-wrap gap-3" aria-label="Ciclos">${legend}</ul>
     </div>`;
 }

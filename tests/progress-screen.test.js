@@ -52,4 +52,5 @@ test('numera todas las sesiones y divide el rango vertical en diez intervalos ig
   const ticks = [...html.matchAll(/text-anchor="end">([^<]+)<\/text>/g)].map((match) => Number(match[1].replace(',', '.')));
   assert.deepEqual(ticks, [190, 181, 172, 163, 154, 145, 136, 127, 118, 109, 100]);
   assert.doesNotMatch(html, />Sesión \d+<\/text>/);
+  assert.doesNotMatch(html, /min-width:|overflow-x-auto/);
 });
