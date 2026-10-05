@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderProgressScreen } from '../src/ui/screens/progress-screen.js';
-import { lineChart } from '../src/ui/components/chart.js';
+import { barChart, lineChart } from '../src/ui/components/chart.js';
 
 test('muestra ambas métricas de ciclos completos y en curso sin rellenar sesiones', async () => {
   const container = { innerHTML: '', querySelector: () => null };
@@ -26,7 +26,9 @@ test('muestra ambas métricas de ciclos completos y en curso sin rellenar sesion
   });
   const html = container.innerHTML;
   assert.equal((html.match(/role="img"/g) ?? []).length, 2);
-  assert.equal((html.match(/<circle /g) ?? []).length, 6);
+  assert.equal((html.match(/<circle /g) ?? []).length, 3);
+  assert.equal((html.match(/data-bar=/g) ?? []).length, 3);
+  assert.equal((html.match(/<polyline /g) ?? []).length, 2);
   assert.match(html, /Completo · Sesión 1: 1[.,]?000 kg/);
   assert.match(html, /Completo · Sesión 1: 80 kg/);
   assert.match(html, /En curso · Sesión 1: 90 kg/);
@@ -34,6 +36,31 @@ test('muestra ambas métricas de ciclos completos y en curso sin rellenar sesion
   const circles = [...html.matchAll(/<circle cx="([^"]+)"/g)].map((match) => Number(match[1]));
   assert.equal(circles[0], circles[2]);
   assert.ok(circles[1] > circles[2]);
+});
+
+test('barras agrupadas por sesión, sin inventar sesiones y con escala desde cero', () => {
+  const html = barChart({ series: [
+    { name: 'A', points: [{ label: 'Sesión 1', value: 100 }, { label: 'Sesión 2', value: 200 }] },
+    { name: 'B', points: [{ label: 'Sesión 1', value: 150 }] },
+  ] });
+  const bars = [...html.matchAll(/data-bar="(\d+)" x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g)].map((match) => match.slice(1).map(Number));
+  assert.equal(bars.length, 3);
+  assert.equal(bars[0][0], bars[2][0]);
+  assert.ok(bars[0][1] + bars[0][3] < bars[2][1]);
+  assert.ok(bars[2][1] + bars[2][3] < bars[1][1]);
+  assert.equal(bars[1][4], bars[0][4] * 2);
+  assert.match(html, /text-anchor="end">0<\/text>/);
+  assert.doesNotMatch(html, /<polyline|<circle|min-width:|overflow-x-auto/);
+});
+
+test('barras vacías, una sesión y valores cero no generan coordenadas inválidas', () => {
+  assert.match(barChart({ series: [] }), /Aún no hay datos/);
+  for (const value of [0, 100]) {
+    const html = barChart({ series: [{ name: '<script>', points: [{ label: 'Sesión 1', value }] }] });
+    assert.match(html, /&lt;script&gt;/);
+    assert.equal((html.match(/data-bar=/g) ?? []).length, 1);
+    assert.doesNotMatch(html, /NaN|Infinity|<script>/);
+  }
 });
 
 test('gráficas vacías, una única sesión y nombres escapados', () => {

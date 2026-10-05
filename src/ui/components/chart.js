@@ -1,6 +1,14 @@
 import { escapeHtml, formatNumber } from './format.js';
 
-export function lineChart({ series, suffix = '', title = 'Gráfica de evolución', emptyText = 'Aún no hay datos.' }) {
+export function lineChart(options) {
+  return renderChart(options, 'line');
+}
+
+export function barChart(options) {
+  return renderChart(options, 'bar');
+}
+
+function renderChart({ series, suffix = '', title = 'Gráfica de evolución', emptyText = 'Aún no hay datos.' }, type) {
   const points = series.flatMap((item) => item.points);
   if (!points.length) {
     return `<div class="flex min-h-52 items-center justify-center rounded-xl border border-dashed border-line bg-panel2/50 px-4 text-center text-sm text-muted">${escapeHtml(emptyText)}</div>`;
@@ -13,14 +21,27 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
   const values = points.map((point) => Number(point.value) || 0);
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
-  const min = rawMin === rawMax ? Math.max(0, rawMin - Math.max(rawMin * 0.08, 1)) : rawMin;
+  const min = type === 'bar' ? 0 : rawMin === rawMax ? Math.max(0, rawMin - Math.max(rawMin * 0.08, 1)) : rawMin;
   const max = rawMin === rawMax ? rawMax + Math.max(rawMax * 0.08, 1) : rawMax;
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
 
   const colors = ['#4ade80', '#60a5fa', '#fbbf24', '#f472b6', '#a78bfa', '#22d3ee', '#fb923c'];
+  const sessionWidth = plotWidth / sessionCount;
+  const groupWidth = sessionWidth * 0.8;
+  const barSlot = groupWidth / series.length;
   const lines = series.map((item, cycleIndex) => {
     const color = colors[cycleIndex % colors.length];
+    if (type === 'bar') {
+      const bars = item.points.map((point, index) => {
+        const x = padding.left + index * sessionWidth + (sessionWidth - groupWidth) / 2 + cycleIndex * barSlot + barSlot * 0.08;
+        const barHeight = Number(point.value) / max * plotHeight;
+        return `<rect data-bar="${index + 1}" x="${x}" y="${padding.top + plotHeight - barHeight}" width="${barSlot * 0.84}" height="${barHeight}" fill="${color}">
+          <title>${escapeHtml(`${item.name} · ${point.label}: ${formatNumber(point.value, 2)}${suffix}`)}</title>
+        </rect>`;
+      }).join('');
+      return `<g aria-label="${escapeHtml(item.name)}">${bars}</g>`;
+    }
     const dash = cycleIndex < colors.length ? '' : `stroke-dasharray="${4 + Math.floor(cycleIndex / colors.length) * 2} 4"`;
     const xy = item.points.map((point, index) => ({
       ...point,
@@ -38,7 +59,7 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
     </g>`;
   }).join('');
   const legend = series.map((item, index) => `<li class="flex items-center gap-2 text-xs text-muted">
-    <svg width="24" height="12" aria-hidden="true"><line x1="0" y1="6" x2="24" y2="6" stroke="${colors[index % colors.length]}" stroke-width="3" ${index < colors.length ? '' : `stroke-dasharray="${4 + Math.floor(index / colors.length) * 2} 4"`} /></svg>
+    <svg width="24" height="12" aria-hidden="true">${type === 'bar' ? `<rect x="0" y="1" width="24" height="10" fill="${colors[index % colors.length]}" />` : `<line x1="0" y1="6" x2="24" y2="6" stroke="${colors[index % colors.length]}" stroke-width="3" ${index < colors.length ? '' : `stroke-dasharray="${4 + Math.floor(index / colors.length) * 2} 4"`} />`}</svg>
     <span>${escapeHtml(item.name)}${item.points.length ? '' : ' (sin sesiones)'}</span>
   </li>`).join('');
 
@@ -51,7 +72,7 @@ export function lineChart({ series, suffix = '', title = 'Gráfica de evolución
   }).join('');
 
   const sessionLabels = Array.from({ length: sessionCount }, (_, index) => {
-    const x = sessionCount === 1 ? padding.left + plotWidth / 2 : padding.left + index / (sessionCount - 1) * plotWidth;
+    const x = type === 'bar' ? padding.left + (index + 0.5) * sessionWidth : sessionCount === 1 ? padding.left + plotWidth / 2 : padding.left + index / (sessionCount - 1) * plotWidth;
     return `<text x="${x}" y="${height - 10}" fill="#9ca3af" font-size="12" text-anchor="middle" data-axis="session">${index + 1}</text>`;
   }).join('');
 

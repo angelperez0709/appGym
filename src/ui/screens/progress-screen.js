@@ -1,4 +1,4 @@
-import { lineChart } from '../components/chart.js';
+import { barChart, lineChart } from '../components/chart.js';
 import { escapeHtml, formatKg, formatNumber } from '../components/format.js';
 import { exerciseSelect, screenHeader, statusPill } from '../components/shared.js';
 
@@ -18,14 +18,14 @@ export async function renderProgressScreen(container, context) {
       ${screenHeader('Progreso', 'Sigue la evolución de la serie Bilbo y compara todos los ciclos.')}
       ${exerciseSelect(snapshot.exercises, snapshot.exerciseId)}
 
-      <p class="text-sm text-muted">Cada línea representa un ciclo del ejercicio. Los ciclos en curso muestran solo las sesiones registradas.</p>
+      <p class="text-sm text-muted">Cada color representa un ciclo del ejercicio. Los ciclos en curso muestran solo las sesiones registradas.</p>
 
       <article class="card space-y-3">
         <div>
           <h2 class="text-lg font-black">Volumen por sesión de entrenamiento</h2>
           <p class="mt-1 text-xs text-muted">Peso × repeticiones de la serie Bilbo, en kg.</p>
         </div>
-        ${lineChart({ series: seriesFor('volumeKg'), suffix: ' kg', title: 'Volumen por sesión de entrenamiento' })}
+        ${barChart({ series: seriesFor('volumeKg'), suffix: ' kg', title: 'Volumen por sesión de entrenamiento' })}
       </article>
 
       <article class="card space-y-3">
