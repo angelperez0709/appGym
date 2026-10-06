@@ -3,17 +3,21 @@ import { TrainingRepository } from './data/training-repository.js';
 import { PwaInstallService } from './services/pwa-install.js';
 import { registerPwaUpdates } from './services/pwa-update.js';
 import { AppController } from './ui/app-controller.js';
+import { CloudSync } from './services/cloud-sync.js';
+import { supabase } from './services/supabase-client.js';
 
 const root = document.querySelector('#app');
 const repository = new TrainingRepository();
 const service = new TrainingService(repository);
 const installService = new PwaInstallService();
-const app = new AppController({ root, service, installService });
+const cloud = new CloudSync({ client: supabase, service });
+const app = new AppController({ root, service, installService, cloud });
 
 bootstrap();
 
 async function bootstrap() {
   try {
+    await cloud.initialize();
     await service.initialize();
     await app.start();
     registerPwaUpdates({

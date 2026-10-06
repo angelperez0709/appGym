@@ -54,7 +54,18 @@ Los principios aplicados son:
 
 ## Persistencia
 
-La PWA utiliza **IndexedDB**, la base de datos nativa del navegador. Es más apropiada que SQLite dentro de una PWA y permite trabajar sin servidor.
+La PWA utiliza **IndexedDB** para conservar los entrenamientos sin conexión y **Supabase** para sincronizarlos al iniciar sesión. Cada cuenta tiene una base local separada. Las altas y ediciones se marcan como pendientes dentro de la misma transacción que guarda el entrenamiento; los borrados se conservan hasta que Supabase los confirma.
+
+En **Datos → Cuenta y nube**, crea una cuenta, confirma el correo e inicia sesión. En el móvil que contiene tu historial anterior, pulsa **Subir mi historial local**. La copia original se conserva y la importación puede reintentarse sin duplicar las sesiones. Después comprueba el mensaje **Todos los cambios están guardados en la nube** antes de borrar datos del navegador.
+
+La sincronización se comprueba al abrir la aplicación, al volver a ella, al recuperar Internet y periódicamente mientras está visible. Si dos dispositivos editan un registro a partir de versiones distintas, se muestra un conflicto en Datos para elegir qué versión conservar. Los cambios locales siguen disponibles ante errores de red.
+
+Configuración:
+
+- `src/config/supabase.js`: URL y clave publishable pública; nunca una clave secret o service_role.
+- `supabase/schema.sql`: tablas, permisos por usuario y relaciones con borrado en cascada. Ejecutar en SQL Editor del proyecto antes de usar la sincronización.
+- Supabase → Authentication → URL Configuration: Site URL y Redirect URL `https://angelperez0709.github.io/appGym/`.
+- Para probar registro y recuperación de contraseña en local, añadir también `http://localhost:5173/` y `http://localhost:4173/` como Redirect URLs.
 
 La antigua base SQLite de la versión Expo no se comparte automáticamente con la PWA. La exportación CSV permite conservar una copia externa de los entrenamientos.
 
@@ -66,7 +77,7 @@ Solo necesitas Node.js para desarrollar o generar el build.
 npm install
 ```
 
-La única dependencia de desarrollo es Tailwind CSS. La aplicación que se ejecuta en el navegador no depende de paquetes JS externos.
+La compilación usa Tailwind CSS y esbuild. El cliente oficial de Supabase se empaqueta en `assets/supabase.js` para incluirlo en la caché offline de la PWA. Las pruebas de persistencia usan fake-indexeddb.
 
 ## Ejecutar en el PC
 

@@ -21,10 +21,11 @@ const NAV_ITEMS = [
 ];
 
 export class AppController {
-  constructor({ root, service, installService }) {
+  constructor({ root, service, installService, cloud }) {
     this.root = root;
     this.service = service;
     this.installService = installService;
+    this.cloud = cloud;
     this.renderVersion = 0;
     this.state = {
       tab: restoreTab(),
@@ -34,8 +35,23 @@ export class AppController {
 
   async start() {
     this.#renderShell();
+    if (this.cloud?.recovering) this.state.tab = 'data';
     this.installService.addEventListener('change', () => {
       if (this.state.tab === 'data') this.renderCurrent();
+    });
+    this.cloud?.addEventListener('change', () => {
+      if (this.cloud.recovering && this.state.tab !== 'data') {
+        this.state.tab = 'data';
+        this.renderCurrent();
+      }
+      const status = this.root.querySelector('[data-cloud-status]');
+      if (status) status.textContent = this.cloud.message;
+      const conflict = this.root.querySelector('[data-cloud-conflict]');
+      if (conflict) conflict.hidden = this.cloud.status !== 'conflict';
+    });
+    this.cloud?.addEventListener('datachange', () => {
+      // Do not replace a form while somebody is entering a session or editing a cycle.
+      if (['progress', 'records'].includes(this.state.tab)) this.renderCurrent();
     });
     await this.renderCurrent();
   }
@@ -52,6 +68,7 @@ export class AppController {
       await renderScreen(screen, {
         service: this.service,
         installService: this.installService,
+        cloud: this.cloud,
         state: this.state,
         rerender: () => this.renderCurrent(),
         toast: (message, type) => this.toast(message, type),

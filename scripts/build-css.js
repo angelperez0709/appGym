@@ -2,6 +2,7 @@ import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compile } from 'tailwindcss';
+import './build-vendor.js';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 const sourceCss = await readFile(join(projectRoot, 'src/styles/app.css'), 'utf8');

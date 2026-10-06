@@ -12,6 +12,11 @@
     "check": "node scripts/check.js"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.5",
     "tailwindcss": "^4.1.10"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2"
   }
 }

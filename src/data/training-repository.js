@@ -1,9 +1,31 @@
 import { roundNumericFields } from '../domain/numbers.js';
 import { idbRequest, openDatabase, STORE, withTransaction } from './indexed-db.js';
 
-export class TrainingRepository {
+export class TrainingRepository extends EventTarget {
+  constructor(databaseName = 'bilbo-tracker') {
+    super();
+    this.databaseName = databaseName;
+  }
+
+  async #transaction(names, mode, operation) {
+    const result = await withTransaction(names, mode, async (stores) => {
+      if (mode === 'readwrite') {
+        for (const [name, store] of Object.entries(stores)) {
+          if (name === STORE.SYNC) continue;
+          stores[name] = new Proxy(store, { get(target, property) {
+            if (property === 'add' || property === 'put') return (row) => target[property]({ ...row, cloudId: row.cloudId ?? crypto.randomUUID(), syncRevision: crypto.randomUUID(), dirty: true });
+            const value = target[property];
+            return typeof value === 'function' ? value.bind(target) : value;
+          } });
+        }
+      }
+      return operation(stores);
+    }, this.databaseName);
+    if (mode === 'readwrite') this.dispatchEvent(new Event('change'));
+    return result;
+  }
   async ready() {
-    await openDatabase();
+    await openDatabase(this.databaseName);
   }
 
   async listExercises() {
@@ -13,7 +35,7 @@ export class TrainingRepository {
 
   async createExercise(exercise) {
     try {
-      return await withTransaction([STORE.EXERCISES], 'readwrite', async ({ exercises }) => (
+      return await this.#transaction([STORE.EXERCISES], 'readwrite', async ({ exercises }) => (
         idbRequest(exercises.add(roundNumericFields(exercise)))
       ));
     } catch (error) {
@@ -25,7 +47,7 @@ export class TrainingRepository {
   }
 
   async listCycles(exerciseId = null) {
-    const db = await openDatabase();
+    const db = await openDatabase(this.databaseName);
     const transaction = db.transaction(STORE.CYCLES, 'readonly');
     const store = transaction.objectStore(STORE.CYCLES);
     const rows = exerciseId == null
@@ -40,7 +62,9 @@ export class TrainingRepository {
   }
 
   async deleteCycle(cycleId) {
-    return withTransaction([STORE.CYCLES, STORE.SESSIONS, STORE.CYCLE_WEIGHTS], 'readwrite', async ({ cycles, sessions, cycleWeights }) => {
+    return this.#transaction([STORE.CYCLES, STORE.SESSIONS, STORE.CYCLE_WEIGHTS, STORE.SYNC], 'readwrite', async ({ cycles, sessions, cycleWeights, sync }) => {
+      const cycle = await idbRequest(cycles.get(cycleId));
+      if (cycle?.cloudId) await idbRequest(sync.put({ id: 'delete:cycles:' + cycle.cloudId, table: 'cycles', cloudId: cycle.cloudId }));
       const [sessionIds, weightIds] = await Promise.all([
         idbRequest(sessions.index('cycleId').getAllKeys(cycleId)),
         idbRequest(cycleWeights.index('cycleId').getAllKeys(cycleId)),
@@ -54,7 +78,7 @@ export class TrainingRepository {
   }
 
   async getActiveCycle(exerciseId) {
-    const db = await openDatabase();
+    const db = await openDatabase(this.databaseName);
     const transaction = db.transaction(STORE.CYCLES, 'readonly');
     const store = transaction.objectStore(STORE.CYCLES);
     const rows = await idbRequest(store.index('exerciseStatus').getAll([exerciseId, 'ACTIVE']));
@@ -62,11 +86,11 @@ export class TrainingRepository {
   }
 
   async createCycle(cycle) {
-    return withTransaction([STORE.CYCLES], 'readwrite', async ({ cycles }) => idbRequest(cycles.add(roundNumericFields(cycle))));
+    return this.#transaction([STORE.CYCLES], 'readwrite', async ({ cycles }) => idbRequest(cycles.add(roundNumericFields(cycle))));
   }
 
   async createCycleWithWeights(cycle, weights) {
-    return withTransaction(
+    return this.#transaction(
       [STORE.CYCLES, STORE.CYCLE_WEIGHTS],
       'readwrite',
       async ({ cycles, cycleWeights }) => {
@@ -80,7 +104,7 @@ export class TrainingRepository {
   }
 
   async listCycleWeights(cycleId) {
-    const db = await openDatabase();
+    const db = await openDatabase(this.databaseName);
     const transaction = db.transaction(STORE.CYCLE_WEIGHTS, 'readonly');
     const store = transaction.objectStore(STORE.CYCLE_WEIGHTS);
     const rows = await idbRequest(store.index('cycleId').getAll(cycleId));
@@ -88,7 +112,7 @@ export class TrainingRepository {
   }
 
   async listCycleSessions(cycleId) {
-    const db = await openDatabase();
+    const db = await openDatabase(this.databaseName);
     const transaction = db.transaction(STORE.SESSIONS, 'readonly');
     const store = transaction.objectStore(STORE.SESSIONS);
     const rows = await idbRequest(store.index('cycleId').getAll(cycleId));
@@ -100,7 +124,7 @@ export class TrainingRepository {
   }
 
   async saveSessionAndCycle(session, updatedCycle) {
-    return withTransaction(
+    return this.#transaction(
       [STORE.SESSIONS, STORE.CYCLES],
       'readwrite',
       async ({ sessions, cycles }) => {
@@ -112,7 +136,7 @@ export class TrainingRepository {
   }
 
   async deleteSessionAndReplaceCycle(sessionId, updatedCycle) {
-    return withTransaction(
+    return this.#transaction(
       [STORE.SESSIONS, STORE.CYCLES],
       'readwrite',
       async ({ sessions, cycles }) => {
@@ -123,20 +147,20 @@ export class TrainingRepository {
   }
 
   async updateSessionAndCycle(session, updatedCycle) {
-    return withTransaction([STORE.SESSIONS, STORE.CYCLES], 'readwrite', async ({ sessions, cycles }) => {
+    return this.#transaction([STORE.SESSIONS, STORE.CYCLES], 'readwrite', async ({ sessions, cycles }) => {
       await idbRequest(sessions.put(roundNumericFields(session)));
       await idbRequest(cycles.put(roundNumericFields(updatedCycle)));
     });
   }
 
   async #get(storeName, key) {
-    const db = await openDatabase();
+    const db = await openDatabase(this.databaseName);
     const transaction = db.transaction(storeName, 'readonly');
     return roundNumericFields(await idbRequest(transaction.objectStore(storeName).get(key)));
   }
 
   async #getAll(storeName) {
-    const db = await openDatabase();
+    const db = await openDatabase(this.databaseName);
     const transaction = db.transaction(storeName, 'readonly');
     return (await idbRequest(transaction.objectStore(storeName).getAll())).map(roundNumericFields);
   }
