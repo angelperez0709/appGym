@@ -69,6 +69,17 @@
     @apply w-full rounded-xl border border-line bg-panel2 px-3.5 py-3 text-base text-slate-100 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:opacity-70;
   }
 
+  .session-input {
+    max-width: 5rem;
+    appearance: textfield;
+  }
+
+  .session-input::-webkit-inner-spin-button,
+  .session-input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
   .label {
     @apply mb-1.5 block text-sm font-semibold text-slate-300;
   }

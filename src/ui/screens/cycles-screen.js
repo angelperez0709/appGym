@@ -249,13 +249,14 @@ function renderCycleCard(cycle, expandedCycleId) {
 
 function renderSessionTable(cycle) {
   if (!cycle.sessions.length) return '<p class="text-sm text-muted">Aún no hay sesiones en este ciclo.</p>';
-  return `<div class="overflow-x-auto"><table class="w-full text-sm">
-    <thead><tr><th class="p-2 text-left">Fecha</th><th class="p-2 text-left">Peso (kg)</th><th class="p-2 text-left">Reps</th><th class="p-2 text-left">1RM (kg)</th><th class="p-2"><span class="sr-only">Eliminar sesión</span></th></tr></thead>
+  return `<div><table class="w-full table-fixed text-xs sm:text-sm">
+    <colgroup><col class="w-[24%]" /><col class="w-[24%]" /><col class="w-[18%]" /><col class="w-[22%]" /><col class="w-[12%]" /></colgroup>
+    <thead><tr><th class="py-2 pr-1 text-left">Fecha</th><th class="px-1 py-2 text-left">Peso (kg)</th><th class="px-1 py-2 text-left">Reps</th><th class="px-1 py-2 text-left">1RM (kg)</th><th class="py-2"><span class="sr-only">Eliminar sesión</span></th></tr></thead>
     <tbody>${cycle.sessions.map((session) => `<tr data-session-row="${session.id}" data-cycle-id="${cycle.id}">
-      <td class="p-2">${formatDate(session.performedAt)}</td>
-      <td class="p-2"><input class="field min-w-20" name="weight" inputmode="decimal" value="${roundDecimal(session.weightKg)}" aria-label="Peso de la sesión" required /></td>
-      <td class="p-2"><input class="field min-w-20" name="reps" type="number" min="1" step="1" value="${session.reps}" aria-label="Repeticiones de la sesión" required /></td>
-      <td class="p-2" data-session-rm>${formatNumber(session.estimatedOneRmKg, 2)}</td>
-      <td class="p-2"><button class="btn-secondary !text-rose-300" type="button" data-delete-session="${session.id}" aria-label="Eliminar sesión del ${formatDate(session.performedAt)}">Eliminar</button></td>
+      <td class="py-2 pr-1">${formatDate(session.performedAt)}</td>
+      <td class="px-1 py-2"><input class="field session-input min-w-0 !px-1 !py-2 text-center" name="weight" inputmode="decimal" value="${roundDecimal(session.weightKg)}" aria-label="Peso de la sesión" required /></td>
+      <td class="px-1 py-2"><input class="field session-input min-w-0 !px-1 !py-2 text-center" name="reps" type="number" inputmode="numeric" min="1" step="1" value="${session.reps}" aria-label="Repeticiones de la sesión" required /></td>
+      <td class="break-words px-1 py-2" data-session-rm>${formatNumber(session.estimatedOneRmKg, 2)}</td>
+      <td class="py-2 text-right"><button class="inline-flex h-10 w-full items-center justify-center rounded-lg text-2xl font-bold text-rose-400 hover:bg-rose-400/10 focus-visible:outline-2 focus-visible:outline-rose-400 disabled:opacity-50" type="button" data-delete-session="${session.id}" aria-label="Eliminar sesión del ${formatDate(session.performedAt)}" title="Eliminar sesión"><span aria-hidden="true">×</span></button></td>
     </tr>`).join('')}</tbody></table></div>`;
 }
