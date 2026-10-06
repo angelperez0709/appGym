@@ -81,6 +81,7 @@ export class SyncRepository {
       for (const name of stores) local[name] = await idbRequest(db[name].getAll());
       const pendingDeletes = await idbRequest(db.sync.getAll());
       const deletedCycles = new Set(pendingDeletes.filter((row) => row.table === 'cycles').map((row) => row.cloudId));
+      const deletedRows = new Set(pendingDeletes.map((row) => row.table + ':' + row.cloudId));
       const maps = {};
       const protectedIds = Object.fromEntries(stores.map((name) => [name, new Set(local[name].filter((row) => row.dirty).map((row) => row.id))]));
       for (const child of [...CLOUD_TABLES].reverse()) {
@@ -92,6 +93,7 @@ export class SyncRepository {
         maps[definition.store] = new Map(local[definition.store].map((row) => [row.cloudId, row.id]));
         const serverIds = new Set(remote[definition.store].map((row) => row.id));
         for (const row of remote[definition.store]) {
+          if (deletedRows.has(definition.table + ':' + row.id)) continue;
           if ((definition.store === 'cycles' && deletedCycles.has(row.id)) || (definition.parent === 'cycles' && deletedCycles.has(row.cycle_id))) continue;
           const existing = local[definition.store].find((item) => item.cloudId === row.id);
           if (existing?.dirty) continue;

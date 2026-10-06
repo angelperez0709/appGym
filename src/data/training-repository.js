@@ -137,9 +137,11 @@ export class TrainingRepository extends EventTarget {
 
   async deleteSessionAndReplaceCycle(sessionId, updatedCycle) {
     return this.#transaction(
-      [STORE.SESSIONS, STORE.CYCLES],
+      [STORE.SESSIONS, STORE.CYCLES, STORE.SYNC],
       'readwrite',
-      async ({ sessions, cycles }) => {
+      async ({ sessions, cycles, sync }) => {
+        const session = await idbRequest(sessions.get(sessionId));
+        if (session?.cloudId) await idbRequest(sync.put({ id: 'delete:sessions:' + session.cloudId, table: 'sessions', cloudId: session.cloudId }));
         await idbRequest(sessions.delete(sessionId));
         await idbRequest(cycles.put(roundNumericFields(updatedCycle)));
       },

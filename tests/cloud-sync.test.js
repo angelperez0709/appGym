@@ -125,6 +125,79 @@ test('borrar un ciclo sin conexión registra el borrado y no vuelve a aparecer e
   assert.equal((await b.cloud.local.snapshot()).cycles.length, 0);
 });
 
+test('elimina una sesión offline, recalcula el ciclo y propaga el borrado sin resucitarla', async () => {
+  const a = setup();
+  const ids = await training(a.service);
+  const last = await a.service.logPrescribedSession({ cycleId: ids.cycleId, reps: 15 });
+  await a.cloud.sync();
+  const b = setup(a.client);
+  await b.cloud.sync();
+  a.cloud.online = () => false;
+  await a.service.deleteSession({ cycleId: ids.cycleId, sessionId: last.sessionId });
+  await a.cloud.sync();
+  assert.equal(a.cloud.status, 'offline');
+  const snapshot = await a.service.getTrainingSnapshot();
+  assert.equal(snapshot.sessions.length, 1);
+  assert.equal(snapshot.cycle.totalReps, 20);
+  assert.equal(snapshot.cycle.totalVolumeKg, 1000);
+  assert.equal(snapshot.cycle.status, 'ACTIVE');
+  assert.equal(snapshot.cycle.endedAt, null);
+  assert.equal(snapshot.prescription.weightKg, 52.5);
+  await a.cloud.local.mergeRemote(await a.cloud.fetchRemote());
+  assert.equal((await a.cloud.local.snapshot()).sessions.length, 1);
+  a.cloud.online = () => true;
+  a.client.fail = true;
+  await assert.rejects(a.cloud.sync(), /Red interrumpida/);
+  assert.equal((await a.cloud.local.snapshot()).sync.length, 1);
+  a.client.fail = false;
+  await a.cloud.sync();
+  await b.cloud.sync();
+  assert.equal(a.client.rows.sessions.length, 1);
+  assert.equal((await b.cloud.local.snapshot()).sessions.length, 1);
+  assert.equal(a.client.rows.cycles[0].total_reps, 20);
+  assert.equal((await a.cloud.local.snapshot()).sync.length, 0);
+});
+
+test('borrar la única sesión antes de subirla conserva el ciclo vacío y su peso inicial', async () => {
+  const a = setup();
+  const ids = await training(a.service);
+  await a.service.deleteSession(ids);
+  await assert.rejects(a.service.deleteSession(ids), /Sesión no encontrada/);
+  const snapshot = await a.service.getTrainingSnapshot();
+  assert.equal(snapshot.sessions.length, 0);
+  assert.equal(snapshot.cycle.totalReps, 0);
+  assert.equal(snapshot.cycle.totalVolumeKg, 0);
+  assert.equal(snapshot.prescription.weightKg, 50);
+  assert.equal((await a.service.getRecordsSnapshot()).records.length, 0);
+  await a.cloud.sync();
+  assert.equal(a.client.rows.sessions.length, 0);
+  assert.equal(a.client.rows.cycles.length, 1);
+});
+
+test('borrar una sesión de bloques repone el entrenamiento de su peso sin borrar otros', async () => {
+  const a = setup();
+  const ids = await training(a.service, 'FIXED_BLOCKS');
+  for (let i = 1; i < 12; i++) await a.service.logPrescribedSession({ cycleId: ids.cycleId, reps: 20 });
+  await a.service.deleteSession(ids);
+  const snapshot = await a.service.getTrainingSnapshot();
+  assert.equal(snapshot.sessions.length, 11);
+  assert.equal(snapshot.cycle.status, 'ACTIVE');
+  assert.equal(snapshot.prescription.weightKg, 40);
+  assert.equal(snapshot.prescription.blockProgress, '4/4');
+  assert.equal(snapshot.cycle.totalReps, 220);
+  assert.equal(snapshot.cycle.totalVolumeKg, 10000);
+});
+
+test('borrar una sesión antigua no reabre el ciclo si ya hay otro activo', async () => {
+  const a = setup();
+  const ids = await training(a.service);
+  const last = await a.service.logPrescribedSession({ cycleId: ids.cycleId, reps: 15 });
+  const next = await a.service.createProgressiveCycle({ exerciseId: ids.exerciseId, name: 'Dos', oneRmKg: 100, startPercentage: 50, incrementKg: 2.5 });
+  await a.service.deleteSession({ cycleId: ids.cycleId, sessionId: last.sessionId });
+  assert.equal((await a.repository.getCycle(ids.cycleId)).status, 'COMPLETED');
+  assert.equal((await a.service.getTrainingSnapshot()).cycle.id, next);
+});
+
 test('subida del historial local remapea IDs, conserva la copia original y evita duplicados', async () => {
   const a = setup();
   await a.service.createExercise('Otro ejercicio');

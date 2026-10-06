@@ -18,6 +18,7 @@ test('muestra un ejercicio, referencia precargada y tabla editable sin placehold
   assert.match(container.innerHTML, /1RM de referencia: 100 kg/);
   assert.match(container.innerHTML, /<table/);
   assert.match(container.innerHTML, /data-session-row="3"/);
+  assert.match(container.innerHTML, /data-delete-session="3"/);
   assert.match(container.innerHTML, /<article[^>]*data-cycle-card="2"/);
   assert.match(container.innerHTML, /data-delete-cycle="2">Eliminar ciclo</);
   assert.match(container.innerHTML, /data-edit-label>Ocultar</);
@@ -63,6 +64,32 @@ test('eliminar exige confirmación y espera a que el borrado termine antes de ac
   assert.equal(state.expandedCycleId, null);
   assert.equal(reads, 2);
   assert.match(container.innerHTML, /Aún no hay ciclos/);
+});
+
+test('eliminar una sesión pide confirmación y conserva el panel abierto sin recargar', async () => {
+  const state = { exerciseId: 1, expandedCycleId: 2 };
+  let click;
+  let allowed = false;
+  let deleted = false;
+  const card = { isConnected: true, querySelectorAll: () => [button] };
+  const row = { dataset: { cycleId: '2', sessionRow: '3' }, closest: () => card };
+  const button = { disabled: false, closest: () => row, addEventListener: (_, handler) => { click = handler; } };
+  const container = { innerHTML: '', querySelector: () => null,
+    querySelectorAll: (selector) => selector === '[data-delete-session]' && !deleted ? [button] : [] };
+  await renderCyclesScreen(container, {
+    state, toast: () => {}, rerender: () => assert.fail('No debe reiniciar la página'),
+    confirm: (message) => { assert.match(message, /Eliminar esta sesión/); return allowed; },
+    service: {
+      getCyclesSnapshot: async () => ({ exerciseId: 1, exercises: [], cycles: [] }),
+      deleteSession: async (ids) => { assert.deepEqual(ids, { cycleId: 2, sessionId: 3 }); assert.equal(button.disabled, true); deleted = true; },
+    },
+  });
+  await click();
+  assert.equal(deleted, false);
+  allowed = true;
+  await click();
+  assert.equal(deleted, true);
+  assert.equal(state.expandedCycleId, 2);
 });
 
 test('Editar abre y Ocultar cierra el panel sin volver a renderizar la pantalla', async () => {
